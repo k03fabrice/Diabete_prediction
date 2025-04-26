@@ -55,7 +55,7 @@ def index():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == 'POST':
+    if request.method == 'GET':
         username = request.form['username']
         password = request.form['password']
        
