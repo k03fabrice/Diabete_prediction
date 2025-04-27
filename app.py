@@ -17,7 +17,7 @@ def log_prediction(features, result, confidence):
 
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = 'super_secret_key'
 
 # Load the model and scaler
 model = joblib.load('diabetes_model.pkl')
@@ -32,16 +32,26 @@ def home():
         return redirect(url_for('predict'))
     return redirect(url_for('login'))
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        # Utilisez .get() pour éviter KeyError si les champs sont absents
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        # Vérifiez que les champs ne sont pas vides
+        if not username or not password:
+            return render_template('login.html', error="Username and password are required")
+
+        # Vérifiez les identifiants
         if username in users and users[username] == password:
             session['username'] = username
             return redirect(url_for('predict'))
         else:
             return render_template('login.html', error="Invalid credentials")
+
+    # GET : Affiche la page de connexion
     return render_template('login.html')
 
 @app.route('/predict', methods=['GET', 'POST'])
