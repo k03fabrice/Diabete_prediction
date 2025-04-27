@@ -1,12 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Résultat de la Prédiction</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <title>Prediction Result</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h2>Résultat</h2>
-    <p>Prédiction : {{ prediction }}</p>
-    <a href="{{ url_for('index') }}">Retour</a>
+    <div class="container">
+        <h2 class="mt-5">Result</h2>
+        <p><strong>Prediction:</strong> {{ result }}</p>
+        <p><strong>Confidence:</strong> {{ "%.2f" % confidence }}%</p>
+        <a href="{{ url_for('predict') }}" class="btn btn-primary">New Prediction</a>
+        <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+    </div>
 </body>
 </html>
