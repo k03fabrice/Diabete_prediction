@@ -1,19 +1,35 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, session
 import joblib
 import numpy as np
 
-app = Flask(__name__)
-app.secret_key = 'super_secret_key'  # Clé pour les messages flash
+import sqlite3
+from datetime import datetime
 
-# Charger le modèle et le scaler
+def log_prediction(features, result, confidence):
+    conn = sqlite3.connect('predictions.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS predictions
+                 (timestamp TEXT, features TEXT, result TEXT, confidence REAL)''')
+    c.execute("INSERT INTO predictions VALUES (?, ?, ?, ?)",
+              (datetime.now(), str(features), result, confidence))
+    conn.commit()
+    conn.close()
+
+
+app = Flask(__name__)
+app.secret_key = 'your_secret_key'
+
+# Load the model and scaler
 model = joblib.load('diabetes_model.pkl')
 scaler = joblib.load('scaler.pkl')
 
-# Simulation d'une base de données d'utilisateurs
-users = {'Fabrice': '1234'}  # Nom d'utilisateur: mot de passe
+# Simulate a user database
+users = {'Fabrice': '1234'}
 
 @app.route('/')
 def home():
+    if 'username' in session:
+        return redirect(url_for('predict'))
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -22,38 +38,55 @@ def login():
         username = request.form['username']
         password = request.form['password']
         if username in users and users[username] == password:
-            return redirect(url_for('index'))
+            session['username'] = username
+            return redirect(url_for('predict'))
         else:
-            flash('Nom d’utilisateur ou mot de passe incorrect.')
+            return render_template('login.html', error="Invalid credentials")
     return render_template('login.html')
 
 @app.route('/predict', methods=['GET', 'POST'])
-def index():
+def predict():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
     if request.method == 'POST':
-        # Récupérer les données du formulaire
         try:
-            pregnancies = float(request.form['pregnancies'])
-            glucose = float(request.form['glucose'])
-            blood_pressure = float(request.form['blood_pressure'])
-            skin_thickness = float(request.form['skin_thickness'])
-            insulin = float(request.form['insulin'])
-            bmi = float(request.form['bmi'])
-            dpf = float(request.form['dpf'])
-            age = float(request.form['age'])
-
-            # Créer un tableau pour la prédiction
-            input_data = np.array([[pregnancies, glucose, blood_pressure, skin_thickness,
-                                   insulin, bmi, dpf, age]])
-            input_data_scaled = scaler.transform(input_data)
-
-            # Faire la prédiction
-            prediction = model.predict(input_data_scaled)[0]
-            result = 'Diabétique' if prediction == 1 else 'Non diabétique'
-
-            return render_template('result.html', prediction=result)
+        # Get form data
+            features = [
+                float(request.form['pregnancies']),
+                float(request.form['glucose']),
+                float(request.form['bloodpressure']),
+                float(request.form['skinthickness']),
+                float(request.form['insulin']),
+                float(request.form['bmi']),
+                float(request.form['dpf']),
+                float(request.form['age'])
+             ]
+        
+            if features[1] <= 0:  # Check that Glucose > 0
+                return render_template('index.html', error="Glucose level must be greater than 0.")
+        # Other validations
         except ValueError:
-            flash('Veuillez entrer des valeurs numériques valides.')
+             return render_template('index.html', error="Please enter valid numeric values.")
+        # Standardize the data
+        features_scaled = scaler.transform([features])
+        
+        # Make a prediction
+        prediction = model.predict(features_scaled)[0]
+        prediction_proba = model.predict_proba(features_scaled)[0]
+        
+        # Interpret the result
+        result = "Diabetic" if prediction == 1 else "Non-diabetic"
+        confidence = prediction_proba[prediction] * 100
+        
+        return render_template('result.html', result=result, confidence=confidence)
+    
     return render_template('index.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('username', None)
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     app.run(debug=True)
